@@ -42,7 +42,7 @@ fun CameraScreen(
     cameraFlash: CameraFlash = CameraFlash.OFF,
     previewAlignment: Alignment = Alignment.TopCenter,
     onErrorFinish: (() -> Unit)? = null,
-    processImage: ((Image) -> Unit)? = null,
+    processImage: ((image: Image, orientation: Int) -> Unit)? = null,
     showGrid: Boolean = false,
     backgroundColor: Color = Color.Black,
     modifier: Modifier = Modifier,

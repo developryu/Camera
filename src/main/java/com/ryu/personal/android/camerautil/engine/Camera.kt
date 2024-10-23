@@ -31,7 +31,6 @@ import com.ryu.personal.android.camerautil.constant.CameraDirection
 import com.ryu.personal.android.camerautil.constant.CameraEngineState
 import com.ryu.personal.android.camerautil.constant.CameraFlash
 import com.ryu.personal.android.camerautil.constant.CameraRatio
-import com.ryu.personal.android.camerautil.constant.ORIENTATIONS
 import com.ryu.personal.android.camerautil.model.CameraInfo
 import com.ryu.personal.android.camerautil.util.AutoFitTextureView
 import com.ryu.personal.android.camerautil.util.CameraInfoUtil
@@ -52,7 +51,7 @@ import kotlin.math.max
 class Camera(
     private val context: Context,
     private val onLoadListener: (Boolean) -> Unit,
-    private val processImage: ((Image) -> Unit)?,
+    private val processImage: ((image:Image, orientation:Int) -> Unit)?,
     private val onErrorFinish: (() -> Unit)?,
 ) {
     private val cameraUtil: CameraInfoUtil by lazy { CameraInfoUtil(context) }
@@ -72,7 +71,6 @@ class Camera(
     private var imageReaderThread: HandlerThread? = null
     private var imageReaderHandler: Handler? = null
 
-    private var sensorOrientation: Int = 0
     private var deviceOrientation: Int = 0
     private lateinit var relativeOrientation: OrientationLiveData
     private val orientationObserver = Observer<Int> {
@@ -93,12 +91,17 @@ class Camera(
         override fun onImageAvailable(reader: ImageReader?) {
             reader?.acquireLatestImage()?.let { image ->
                 if (state == CameraEngineState.STATE_PREVIEW) {
-                    val currentTime = System.currentTimeMillis()
-                    if (currentTime - lastProcessTime >= 500) {
-                        lastProcessTime = currentTime
-                        processImage?.invoke(image)
+                    if (processImage != null) {
+                        val currentTime = System.currentTimeMillis()
+                        if (currentTime - lastProcessTime >= 500) {
+                            lastProcessTime = currentTime
+                            processImage.invoke(image, deviceOrientation)
+                        } else {
+                            image.close()
+                        }
+                    } else {
+                        image.close()
                     }
-                    image.close()
                 } else if (state == CameraEngineState.STATE_PICTURE_TAKEN) {
                     ratio?.let {
                         cameraHandler?.post { ImageSaver(
@@ -334,7 +337,7 @@ class Camera(
             }
         }
         val displayRotation = (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
-        sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
+        val sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
         var swappedDimensions = false
         when (displayRotation) {
             Surface.ROTATION_0, Surface.ROTATION_180 -> {
@@ -546,8 +549,7 @@ class Camera(
             captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
             setAutoFlash(captureBuilder, cameraInfo, flash!!)
 
-            val rotation = (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
-            captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, getOrientation(rotation))
+            captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, deviceOrientation)
             val captureCallback = object: CameraCaptureSession.CaptureCallback() {
                 override fun onCaptureCompleted(session: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
                     super.onCaptureCompleted(session, request, result)
@@ -591,7 +593,7 @@ class Camera(
         }
     }
 
-    private fun getOrientation(rotation: Int): Int {
-        return (ORIENTATIONS.get(rotation) + sensorOrientation + 270) % 360
-    }
+//    private fun getOrientation(rotation: Int): Int {
+//        return (ORIENTATIONS.get(rotation) + sensorOrientation + 270) % 360
+//    }
 }
