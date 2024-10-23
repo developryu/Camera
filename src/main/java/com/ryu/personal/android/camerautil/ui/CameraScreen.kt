@@ -2,6 +2,7 @@ package com.ryu.personal.android.camerautil.ui
 
 import android.annotation.SuppressLint
 import android.content.res.Configuration
+import android.media.Image
 import android.util.Size
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -24,7 +25,6 @@ import com.ryu.personal.android.camerautil.constant.CameraAngle
 import com.ryu.personal.android.camerautil.constant.CameraDirection
 import com.ryu.personal.android.camerautil.constant.CameraFlash
 import com.ryu.personal.android.camerautil.constant.CameraOrientation
-import com.ryu.personal.android.camerautil.constant.CameraPreviewQuality
 import com.ryu.personal.android.camerautil.constant.CameraRatio
 import com.ryu.personal.android.camerautil.constant.CameraState
 import androidx.compose.ui.unit.Dp
@@ -37,12 +37,12 @@ import com.ryu.personal.android.camerautil.util.CameraScreenUtil
 fun CameraScreen(
     cameraState: CameraState = CameraState.IDLE,
     cameraRatio: CameraRatio = CameraRatio.RATIO_4_3,
-    cameraPreviewQuality: CameraPreviewQuality = CameraPreviewQuality.MEDIUM,
     cameraDirection: CameraDirection = CameraDirection.BACK,
     cameraAngle: CameraAngle = CameraAngle.NORMAL,
     cameraFlash: CameraFlash = CameraFlash.OFF,
     previewAlignment: Alignment = Alignment.TopCenter,
-    onErrorFinish: () -> Unit = {},
+    onErrorFinish: (() -> Unit)? = null,
+    processImage: ((Image) -> Unit)? = null,
     showGrid: Boolean = false,
     backgroundColor: Color = Color.Black,
     modifier: Modifier = Modifier,
@@ -60,9 +60,14 @@ fun CameraScreen(
     var currentCameraFlash by remember { mutableStateOf(cameraFlash) }
 
     var isCameraLoading by remember { mutableStateOf(true) }
-    val camera by remember { mutableStateOf(Camera(context = context, onLoadListener = {
-        isCameraLoading = it
-    }, processImage = {})) }
+    val camera by remember { mutableStateOf(
+        Camera(
+            context = context,
+            onLoadListener = { isCameraLoading = it },
+            processImage = processImage,
+            onErrorFinish = onErrorFinish
+        ))
+    }
 
     LaunchedEffect(previewSize, cameraState, cameraDirection, cameraAngle, cameraRatio, cameraFlash) {
         camera.setRealTextureViewSize(

@@ -52,7 +52,8 @@ import kotlin.math.max
 class Camera(
     private val context: Context,
     private val onLoadListener: (Boolean) -> Unit,
-    private val processImage: ((Image) -> Unit)? = null,
+    private val processImage: ((Image) -> Unit)?,
+    private val onErrorFinish: (() -> Unit)?,
 ) {
     private val cameraUtil: CameraInfoUtil by lazy { CameraInfoUtil(context) }
     private val cameraManager: CameraManager by lazy { context.getSystemService(Context.CAMERA_SERVICE) as CameraManager }
@@ -302,6 +303,7 @@ class Camera(
                         else -> "Unknown"
                     }
                     throw RuntimeException("Camera ${cameraInfo.id} error: ($error) $msg")
+                    onErrorFinish?.invoke()
                 }
             }, cameraHandler)
         } catch (e: CameraAccessException) {
@@ -436,30 +438,34 @@ class Camera(
         val surface: Surface = Surface(texture)
         previewRequestBuilder = cameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
         previewRequestBuilder?.addTarget(surface)
-        cameraDevice!!.createCaptureSession(listOf(surface, imageReader!!.surface), object: CameraCaptureSession.StateCallback() {
-            override fun onConfigured(cameraCaptureSession: CameraCaptureSession) {
-                captureSession = cameraCaptureSession
-                try {
-                    previewRequestBuilder?.let { builder ->
-                        if (processImage != null) {
-                            builder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
-                            imageReader?.let {
-                                builder.addTarget(it.surface)
+        try {
+            cameraDevice!!.createCaptureSession(listOf(surface, imageReader!!.surface), object: CameraCaptureSession.StateCallback() {
+                override fun onConfigured(cameraCaptureSession: CameraCaptureSession) {
+                    captureSession = cameraCaptureSession
+                    try {
+                        previewRequestBuilder?.let { builder ->
+                            if (processImage != null) {
+                                builder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
+                                imageReader?.let {
+                                    builder.addTarget(it.surface)
+                                }
                             }
+
+                            builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+                            setAutoFlash(builder, cameraInfo, cameraFlash)
+                            previewRequest = builder.build()
+                            captureSession?.setRepeatingRequest(previewRequest!!, captureCallback, cameraHandler)
                         }
-
-                        builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
-                        setAutoFlash(builder, cameraInfo, cameraFlash)
-                        previewRequest = builder.build()
-                        captureSession?.setRepeatingRequest(previewRequest!!, captureCallback, cameraHandler)
+                    } catch (e: CameraAccessException) {
+                        e.printStackTrace()
                     }
-                } catch (e: CameraAccessException) {
-                    e.printStackTrace()
                 }
-            }
 
-            override fun onConfigureFailed(cameraCaptureSession: CameraCaptureSession) = Unit
-        }, null)
+                override fun onConfigureFailed(cameraCaptureSession: CameraCaptureSession) = Unit
+            }, null)
+        } catch (e: CameraAccessException) {
+            e.printStackTrace()
+        }
     }
 
     private fun startBackgroundThread() {
