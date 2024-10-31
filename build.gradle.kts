@@ -58,4 +58,7 @@ dependencies {
 
     // Timber
     implementation(libs.timber)
+
+    // viewModel
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
 }

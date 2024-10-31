@@ -8,8 +8,14 @@ data class CameraInfo(
     val id: String,
     val direction: CameraDirection,
     val angle: CameraAngle,
-    val supportOutputSizes: List<Size> = emptyList(),
-    val supportFocalLength: List<Float> = emptyList(),
-    val supportFlash: Boolean = false,
-    val supportWideAngle: Boolean = false,
+    val supportOutputSizes: OutputSizes,
+    val supportFocalLength: List<Float>,
+    val supportFlash: Boolean,
+    val supportWideAngle: Boolean
+)
+
+data class OutputSizes(
+    val preview: List<Size>,
+    val picture: List<Size>,
+    val video: List<Size>
 )
